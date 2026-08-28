@@ -1,0 +1,14 @@
+{
+  "name": "andamp",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["web", "packages/core"],
+  "scripts": {
+    "dev:web": "npm --workspace web run dev",
+    "build:web": "npm --workspace web run build",
+    "test": "npm --workspace @andamp/core test && npm --workspace web test",
+    "typecheck": "npm --workspace @andamp/core run typecheck && npm --workspace web run typecheck",
+    "lint": "npm --workspace @andamp/core run lint && npm --workspace web run lint"
+  },
+  "engines": { "node": ">=22" }
+}

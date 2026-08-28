@@ -1,0 +1,17 @@
+name: Android Release
+on: [workflow_dispatch]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install && npm run build:web
+      - run: rm -rf android/app/src/main/assets/* && cp -R web/dist/. android/app/src/main/assets/
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.14.3' }
+      - run: gradle -p android :app:testDebugUnitTest :app:assembleDebug
+      - run: echo "Production signing intentionally not configured. See docs/RELEASE.md."
