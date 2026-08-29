@@ -9,7 +9,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
-      - run: npm install
+      - run: npm ci
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build:web
@@ -17,6 +17,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build:web
+
+      - name: Package web UI into Android assets
+        run: |
+          rm -rf android/app/src/main/assets
+          mkdir -p android/app/src/main/assets
+          cp -R web/dist/. android/app/src/main/assets/
+
+      - name: Verify packaged Android web assets
+        run: |
+          test -f android/app/src/main/assets/index.html
+          test -n "$(find android/app/src/main/assets -type f -print -quit)"
+          echo "Packaged asset count:"
+          find android/app/src/main/assets -type f | wc -l
+
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
       - uses: gradle/actions/setup-gradle@v4

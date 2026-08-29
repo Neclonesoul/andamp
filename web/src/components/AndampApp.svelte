@@ -12,7 +12,12 @@ let raf=0;
 const fmt=(ms:number)=>{const s=Math.max(0,Math.floor(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
 const filtered=()=>state.queue.filter(q=>`${q.track.title} ${q.track.artist} ${q.track.album}`.toLowerCase().includes(query.toLowerCase()));
 onMount(()=>{
-  adapter=window.AndampNative?new NativeAndroidPlayerAdapter():new WebPlayerAdapter();
+  const isNativeAndroid =
+    typeof window !== 'undefined' && !!window.AndampNative;
+
+  adapter=isNativeAndroid
+    ? new NativeAndroidPlayerAdapter()
+    : new WebPlayerAdapter();
   const off=adapter.subscribe((s:PlaybackSnapshot)=>state=s);
   const theme=localStorage.getItem('andamp-theme')||'andamp'; document.documentElement.dataset.theme=theme==='andamp'?'':theme;
   return ()=>{off();cancelAnimationFrame(raf)}
@@ -78,8 +83,8 @@ function visualizer(node:HTMLCanvasElement){
   </div>
   {:else if tab==='library'}
     <section class="panel" style="padding:12px">
-      <div class="row"><input class="grow" placeholder="Search local library" bind:value={query}/>{#if !window.AndampNative}<label><button>ADD MUSIC<input hidden type="file" multiple accept="audio/*,.flac,.mp3,.m4a,.ogg,.opus,.wav" on:change={files}/></button></label>{/if}</div>
-      {#if window.AndampNative}<p class="small">Android library is supplied by MediaStore through the native service.</p>{/if}
+      <div class="row"><input class="grow" placeholder="Search local library" bind:value={query}/>{#if !isNativeAndroid}<label><button>ADD MUSIC<input hidden type="file" multiple accept="audio/*,.flac,.mp3,.m4a,.ogg,.opus,.wav" on:change={files}/></button></label>{/if}</div>
+      {#if isNativeAndroid}<p class="small">Android library is supplied by MediaStore through the native service.</p>{/if}
       {#each filtered() as q}
         <button class="track" style="width:100%;text-align:left" on:click={()=>adapter.playTrack(q.track.id)}><span class="art">♪</span><span><b>{q.track.title}</b><br><span class="small">{q.track.artist} · {q.track.album}</span></span><span class="small">{fmt(q.track.durationMs)}</span></button>
       {:else}<p class="small">No local tracks yet.</p>{/each}
@@ -94,7 +99,7 @@ function visualizer(node:HTMLCanvasElement){
   {:else if tab==='visualizer'}
     <section class="panel" style="padding:12px"><h2>Spectrum</h2><canvas aria-hidden="true" use:visualizer></canvas><p class="small">The browser spectrum is driven by the active Web Audio analyser.</p></section>
   {:else}
-    <section class="panel" style="padding:12px"><h2>Settings</h2><p><b>Privacy:</b> local-first; no account, ads or library upload.</p><p><b>Platform:</b> {window.AndampNative?'Android native audio authority':'Web preview adapter'}</p><p><b>Version:</b> 0.1.0</p></section>
+    <section class="panel" style="padding:12px"><h2>Settings</h2><p><b>Privacy:</b> local-first; no account, ads or library upload.</p><p><b>Platform:</b> {isNativeAndroid?'Android native audio authority':'Web preview adapter'}</p><p><b>Version:</b> 0.1.0</p></section>
   {/if}
 
   {#if state.currentTrack}
