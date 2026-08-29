@@ -4,19 +4,34 @@ import type { PlayerAdapter } from './interface';
 const empty=():PlaybackSnapshot=>({protocolVersion:1,status:'idle',currentMediaId:null,currentTrack:null,queue:[],queueIndex:-1,positionMs:0,bufferedPositionMs:0,durationMs:0,repeatMode:'off',shuffle:false,error:null,availableActions:['play','pause','seek','next','previous']});
 
 export class WebPlayerAdapter implements PlayerAdapter {
-  private audio=new Audio();
+  private audio:HTMLAudioElement|null=null;
   private ctx:AudioContext|null=null; private source:MediaElementAudioSourceNode|null=null;
   private analyser:AnalyserNode|null=null; private filters:BiquadFilterNode[]=[]; private gain:GainNode|null=null;
   private tracks=new Map<string,{track:Track,url:string}>(); private state=empty(); private listeners=new Set<(s:PlaybackSnapshot)=>void>();
-  private tick=0;
-  constructor(){
-    this.audio.preload='metadata';
-    this.audio.addEventListener('play',()=>this.patch({status:'playing'}));
-    this.audio.addEventListener('pause',()=>this.patch({status:this.audio.ended?'ended':'paused'}));
-    this.audio.addEventListener('timeupdate',()=>this.patch({positionMs:this.audio.currentTime*1000,durationMs:Number.isFinite(this.audio.duration)?this.audio.duration*1000:0}));
-    this.audio.addEventListener('ended',()=>this.onEnded());
-    this.audio.addEventListener('error',()=>this.patch({status:'error',error:'Unable to decode or access this audio file.'}));
+  private getAudio():HTMLAudioElement {
+    if(this.audio) return this.audio;
+
+    const audio=new Audio();
+    audio.preload='metadata';
+
+    audio.addEventListener('play',()=>this.patch({status:'playing'}));
+    audio.addEventListener('pause',()=>this.patch({
+      status:audio.ended?'ended':'paused'
+    }));
+    audio.addEventListener('timeupdate',()=>this.patch({
+      positionMs:audio.currentTime*1000,
+      durationMs:Number.isFinite(audio.duration)?audio.duration*1000:0
+    }));
+    audio.addEventListener('ended',()=>this.onEnded());
+    audio.addEventListener('error',()=>this.patch({
+      status:'error',
+      error:'Unable to decode or access this audio file.'
+    }));
+
+    this.audio=audio;
+    return audio;
   }
+
   private patch(p:Partial<PlaybackSnapshot>){this.state={...this.state,...p};this.listeners.forEach(l=>l(this.state));}
   subscribe(l:(s:PlaybackSnapshot)=>void){this.listeners.add(l);l(this.state);return()=>this.listeners.delete(l)}
   async importFiles(files:FileList|File[]){
@@ -32,7 +47,7 @@ export class WebPlayerAdapter implements PlayerAdapter {
   }
   private ensureGraph(){
     if(this.ctx) return;
-    this.ctx=new AudioContext(); this.source=this.ctx.createMediaElementSource(this.audio); this.gain=this.ctx.createGain();
+    const audio=this.getAudio(); this.ctx=new AudioContext(); this.source=this.ctx.createMediaElementSource(audio); this.gain=this.ctx.createGain();
     this.filters=[60,170,310,600,1000,3000,6000,12000,14000,16000].map((f,i)=>{const n=this.ctx!.createBiquadFilter();n.type=i===0?'lowshelf':i===9?'highshelf':'peaking';n.frequency.value=f;n.Q.value=1;return n});
     this.analyser=this.ctx.createAnalyser(); this.analyser.fftSize=512;
     let node:AudioNode=this.source; for(const f of this.filters){node.connect(f);node=f;} node.connect(this.gain);this.gain.connect(this.analyser);this.analyser.connect(this.ctx.destination);
@@ -42,16 +57,16 @@ export class WebPlayerAdapter implements PlayerAdapter {
   async playTrack(id:string){
     const index=this.state.queue.findIndex(q=>q.track.id===id); if(index<0) return;
     const ref=this.tracks.get(id); if(!ref) return;
-    this.ensureGraph(); await this.ctx?.resume(); this.audio.src=ref.url; this.patch({status:'loading',currentMediaId:id,currentTrack:ref.track,queueIndex:index,error:null});
-    await this.audio.play();
+    this.ensureGraph(); await this.ctx?.resume(); this.getAudio().src=ref.url; this.patch({status:'loading',currentMediaId:id,currentTrack:ref.track,queueIndex:index,error:null});
+    await this.getAudio().play();
   }
-  async play(){this.ensureGraph();await this.ctx?.resume();await this.audio.play()}
-  async pause(){this.audio.pause()}
-  async togglePlayback(){this.audio.paused?await this.play():await this.pause()}
-  async seekTo(ms:number){this.audio.currentTime=Math.max(0,ms/1000)}
+  async play(){this.ensureGraph();await this.ctx?.resume();await this.getAudio().play()}
+  async pause(){this.getAudio().pause()}
+  async togglePlayback(){this.getAudio().paused?await this.play():await this.pause()}
+  async seekTo(ms:number){this.getAudio().currentTime=Math.max(0,ms/1000)}
   async seekBy(ms:number){await this.seekTo(this.state.positionMs+ms)}
   async next(){if(!this.state.queue.length)return; const n=Math.min(this.state.queueIndex+1,this.state.queue.length-1);await this.playTrack(this.state.queue[n].track.id)}
-  async previous(){if(this.audio.currentTime>3){await this.seekTo(0);return;}const n=Math.max(this.state.queueIndex-1,0);if(this.state.queue[n])await this.playTrack(this.state.queue[n].track.id)}
+  async previous(){if(this.getAudio().currentTime>3){await this.seekTo(0);return;}const n=Math.max(this.state.queueIndex-1,0);if(this.state.queue[n])await this.playTrack(this.state.queue[n].track.id)}
   async setShuffle(enabled:boolean){this.patch({shuffle:enabled})}
   async setRepeat(mode:RepeatMode){this.patch({repeatMode:mode})}
   async getSnapshot(){return this.state}
