@@ -16,6 +16,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.webkit.WebViewAssetLoader
 import app.andamp.dev.bridge.AndampBridge
+import app.andamp.dev.library.MediaStoreRepository
 import app.andamp.dev.playback.PlaybackService
 import com.google.common.util.concurrent.ListenableFuture
 
@@ -76,6 +77,7 @@ class MainActivity : ComponentActivity() {
             addJavascriptInterface(
                 AndampBridge(
                     controller = { controller },
+                    library = MediaStoreRepository(contentResolver),
                     emit = { payload ->
                         post {
                             evaluateJavascript(

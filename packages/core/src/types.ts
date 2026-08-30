@@ -25,6 +25,12 @@ export interface QueueItem {
   track: Track;
 }
 
+export interface LibrarySnapshot {
+  protocolVersion: 1;
+  tracks: Track[];
+  scannedAt: number;
+}
+
 export interface PlaybackSnapshot {
   protocolVersion: 1;
   status: PlaybackStatus;

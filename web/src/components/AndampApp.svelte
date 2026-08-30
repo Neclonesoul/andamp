@@ -1,26 +1,32 @@
 <script lang="ts">
 import { onMount } from 'svelte';
-import type { PlaybackSnapshot, RepeatMode, Track } from '@andamp/core';
+import type { LibrarySnapshot, PlaybackSnapshot, RepeatMode, Track } from '@andamp/core';
 import { EQ_PRESETS, FLAT_EQ } from '@andamp/core';
 import { WebPlayerAdapter } from '../lib/player/web-adapter';
 import { NativeAndroidPlayerAdapter } from '../lib/player/native-adapter';
 
 let adapter:any;
 let state:PlaybackSnapshot={protocolVersion:1,status:'idle',currentMediaId:null,currentTrack:null,queue:[],queueIndex:-1,positionMs:0,bufferedPositionMs:0,durationMs:0,repeatMode:'off',shuffle:false,error:null,availableActions:[]};
+let library:LibrarySnapshot={protocolVersion:1,tracks:[],scannedAt:0};
 let tab='player', query='', eqEnabled=false, eqGains=[0,0,0,0,0,0,0,0,0,0], preamp=0, preset='Flat', canvas:HTMLCanvasElement;
 let raf=0;
+let isNativeAndroid=false;
 const fmt=(ms:number)=>{const s=Math.max(0,Math.floor(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
-const filtered=()=>state.queue.filter(q=>`${q.track.title} ${q.track.artist} ${q.track.album}`.toLowerCase().includes(query.toLowerCase()));
+const filtered=()=>isNativeAndroid
+  ? library.tracks.filter(track=>`${track.title} ${track.artist} ${track.album}`.toLowerCase().includes(query.toLowerCase()))
+  : state.queue.map(q=>q.track).filter(track=>`${track.title} ${track.artist} ${track.album}`.toLowerCase().includes(query.toLowerCase()));
 onMount(()=>{
-  const isNativeAndroid =
+  isNativeAndroid =
     typeof window !== 'undefined' && !!window.AndampNative;
 
   adapter=isNativeAndroid
     ? new NativeAndroidPlayerAdapter()
     : new WebPlayerAdapter();
   const off=adapter.subscribe((s:PlaybackSnapshot)=>state=s);
+  const offLibrary=adapter.subscribeLibrary?.((s:LibrarySnapshot)=>library=s) ?? (()=>{});
+  adapter.refreshLibrary?.();
   const theme=localStorage.getItem('andamp-theme')||'andamp'; document.documentElement.dataset.theme=theme==='andamp'?'':theme;
-  return ()=>{off();cancelAnimationFrame(raf)}
+  return ()=>{off();offLibrary();cancelAnimationFrame(raf)}
 });
 async function files(e:Event){const input=e.currentTarget as HTMLInputElement;if(input.files&&adapter.importFiles)await adapter.importFiles(input.files)}
 async function cycleRepeat(){const next:RepeatMode=state.repeatMode==='off'?'all':state.repeatMode==='all'?'one':'off';await adapter.setRepeat(next)}
@@ -85,8 +91,8 @@ function visualizer(node:HTMLCanvasElement){
     <section class="panel" style="padding:12px">
       <div class="row"><input class="grow" placeholder="Search local library" bind:value={query}/>{#if !isNativeAndroid}<label><button>ADD MUSIC<input hidden type="file" multiple accept="audio/*,.flac,.mp3,.m4a,.ogg,.opus,.wav" on:change={files}/></button></label>{/if}</div>
       {#if isNativeAndroid}<p class="small">Android library is supplied by MediaStore through the native service.</p>{/if}
-      {#each filtered() as q}
-        <button class="track" style="width:100%;text-align:left" on:click={()=>adapter.playTrack(q.track.id)}><span class="art">♪</span><span><b>{q.track.title}</b><br><span class="small">{q.track.artist} · {q.track.album}</span></span><span class="small">{fmt(q.track.durationMs)}</span></button>
+      {#each filtered() as track}
+        <button class="track" style="width:100%;text-align:left" on:click={()=>adapter.playTrack(track.id)}><span class="art">♪</span><span><b>{track.title}</b><br><span class="small">{track.artist} · {track.album}</span></span><span class="small">{fmt(track.durationMs)}</span></button>
       {:else}<p class="small">No local tracks yet.</p>{/each}
     </section>
   {:else if tab==='queue'}

@@ -37,19 +37,6 @@ class PlaybackService : MediaLibraryService() {
         session = MediaLibrarySession.Builder(this, player, Callback(library))
             .setSessionActivity(pendingIntent)
             .build()
-        refreshLibraryQueue()
-    }
-
-    private fun refreshLibraryQueue() {
-        val items = library.tracks().map { t ->
-            MediaItem.Builder()
-                .setMediaId(t.id)
-                .setUri(t.uri)
-                .setMediaMetadata(MediaMetadata.Builder().setTitle(t.title).setArtist(t.artist).setAlbumTitle(t.album).build())
-                .build()
-        }
-        player.setMediaItems(items)
-        player.prepare()
     }
 
     override fun onGetSession(controllerInfo: ControllerInfo): MediaLibrarySession = session
