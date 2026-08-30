@@ -32,8 +32,14 @@ class MainActivity : ComponentActivity() {
     private lateinit var controllerFuture: ListenableFuture<MediaController>
     private var controller: MediaController? = null
 
+    private var refreshLibraryAfterWebViewReady = false
+
     private val mediaPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                refreshLibraryAfterWebViewReady = true
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,6 +69,21 @@ class MainActivity : ComponentActivity() {
                     request: WebResourceRequest?
                 ): WebResourceResponse? {
                     return request?.url?.let(assetLoader::shouldInterceptRequest)
+                }
+
+                override fun onPageFinished(
+                    view: WebView?,
+                    url: String?
+                ) {
+                    super.onPageFinished(view, url)
+
+                    if (refreshLibraryAfterWebViewReady) {
+                        refreshLibraryAfterWebViewReady = false
+                        view?.evaluateJavascript(
+                            "window.__andampRefreshLibrary?.();",
+                            null
+                        )
+                    }
                 }
 
                 override fun shouldOverrideUrlLoading(

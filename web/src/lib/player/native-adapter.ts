@@ -9,6 +9,7 @@ declare global {
   interface Window {
     AndampNative?: { postMessage(payload:string):void };
     __andampReceive?: (payload:string)=>void;
+    __andampRefreshLibrary?: ()=>void;
   }
 }
 
@@ -42,6 +43,10 @@ export class NativeAndroidPlayerAdapter implements PlayerAdapter {
   private libraryListeners=new Set<(s:LibrarySnapshot)=>void>();
 
   constructor(){
+    window.__andampRefreshLibrary=()=>{
+      void this.refreshLibrary();
+    };
+
     window.__andampReceive=(payload)=>{
       try{
         const msg=JSON.parse(payload);
